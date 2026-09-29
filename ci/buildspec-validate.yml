@@ -1,0 +1,77 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "Installing validation tools..."
+
+      - |
+        TERRAFORM_VERSION="1.9.8"
+        curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+        unzip -q /tmp/terraform.zip -d /tmp/terraform
+        install /tmp/terraform/terraform /usr/local/bin/terraform
+
+      - |
+        KUBECONFORM_VERSION="0.6.7"
+        curl -fsSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" -o /tmp/kubeconform.tar.gz
+        tar -xzf /tmp/kubeconform.tar.gz -C /tmp
+        install /tmp/kubeconform /usr/local/bin/kubeconform
+
+  pre_build:
+    commands:
+      - echo "Terraform version:"
+      - terraform version
+
+      - echo "Validating Terraform formatting..."
+      - terraform fmt -check -recursive infra/terraform
+
+      - echo "Initializing staging Terraform..."
+      - terraform -chdir=infra/terraform/environments/staging init -backend=false
+
+      - echo "Validating staging Terraform..."
+      - terraform -chdir=infra/terraform/environments/staging validate
+
+      - echo "Initializing production Terraform..."
+      - terraform -chdir=infra/terraform/environments/production init -backend=false
+
+      - echo "Validating production Terraform..."
+      - terraform -chdir=infra/terraform/environments/production validate
+
+      - echo "Validating Kubernetes manifests..."
+      - kubeconform \
+          -strict \
+          -summary \
+          infra/k8s/*.yaml
+
+      - echo "Linting backend Dockerfile..."
+      - |
+        docker run --rm \
+          -i \
+          hadolint/hadolint:2.12.0 \
+          < docker/backend.Dockerfile
+
+      - echo "Linting frontend Dockerfile..."
+      - |
+        docker run --rm \
+          -i \
+          hadolint/hadolint:2.12.0 \
+          < docker/frontend.Dockerfile
+
+      - echo "Running Trivy filesystem scan..."
+      - |
+        docker run --rm \
+          -v "${CODEBUILD_SRC_DIR}:/src:ro" \
+          aquasec/trivy:0.57.1 \
+          fs \
+          --severity HIGH,CRITICAL \
+          --ignore-unfixed \
+          --exit-code 1 \
+          /src
+
+  build:
+    commands:
+      - echo "All validation checks passed."
+
+artifacts:
+  files:
+    - "**/*"

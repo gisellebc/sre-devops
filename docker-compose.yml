@@ -1,0 +1,73 @@
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
+
+    image: devops-challenge/backend:local
+
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+
+    ports:
+      - "8080:8080"
+
+    networks:
+      - app-network
+
+    restart: unless-stopped
+
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+
+    read_only: true
+
+    tmpfs:
+      - /tmp
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+
+    image: devops-challenge/frontend:local
+
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      BACKEND_URL: http://backend:8080
+
+    ports:
+      - "3000:3000"
+
+    networks:
+      - app-network
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+
+    read_only: true
+
+    tmpfs:
+      - /tmp
+
+
+networks:
+  app-network:
+    driver: bridge
+
+    

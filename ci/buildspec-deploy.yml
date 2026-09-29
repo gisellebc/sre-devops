@@ -1,0 +1,38 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Preparing deployment..."
+      - echo "Environment: ${DEPLOY_ENVIRONMENT}"
+      - echo "Commit: ${CODEBUILD_RESOLVED_SOURCE_VERSION}"
+
+  build:
+    commands:
+      - echo "========================================"
+      - echo "Simulated deployment"
+      - echo "========================================"
+
+      - echo "Deploying to ${DEPLOY_ENVIRONMENT}..."
+
+      - echo "Applying namespace..."
+      - echo "kubectl apply -f infra/k8s/namespace.yaml"
+
+      - echo "Applying backend..."
+      - echo "kubectl apply -f infra/k8s/backend-deployment.yaml"
+      - echo "kubectl apply -f infra/k8s/backend-service.yaml"
+      - echo "kubectl apply -f infra/k8s/backend-hpa.yaml"
+
+      - echo "Applying frontend..."
+      - echo "kubectl apply -f infra/k8s/frontend-deployment.yaml"
+      - echo "kubectl apply -f infra/k8s/frontend-service.yaml"
+      - echo "kubectl apply -f infra/k8s/frontend-hpa.yaml"
+
+      - echo "Applying network policies..."
+      - echo "kubectl apply -f infra/k8s/network-policy.yaml"
+
+      - echo "Deployment simulation completed."
+
+  post_build:
+    commands:
+      - echo "Environment ${DEPLOY_ENVIRONMENT} deployment simulation passed."
